@@ -49,10 +49,29 @@ A NestJS + SQLite backend that owns the lifecycle of time-off requests for Ready
 ```bash
 npm install
 npm run start:dev
-# → http://localhost:3000
-# → http://localhost:3000/docs    (Swagger)
+# → http://localhost:3000        (redirects to /ui/)
+# → http://localhost:3000/ui/    (live operator dashboard, see below)
+# → http://localhost:3000/docs   (Swagger UI)
 # → http://localhost:3000/healthz
 ```
+
+### Built-in operator dashboard
+
+![Dashboard](./docs/images/dashboard.png)
+
+Open `http://localhost:3000/ui/` in any browser. The dashboard is a single-file
+vanilla-JS app that ships with the service and talks to the same HTTP API.
+It lets a reviewer:
+
+- Seed Alice + Bob with one click
+- Submit a time-off request through a real form (auto-attaches an `Idempotency-Key`)
+- Approve / cancel pending requests
+- Watch the **outbox** drain (`pending → done`) in real time
+- See the **audit ledger** as a colored timeline (`REQUEST_CREATED`, `REQUEST_APPROVED`, `HCM_WEBHOOK`, `HCM_RECONCILE`, …)
+- Inject a **5xx HCM outage** and watch the outbox retry, then heal HCM and watch it succeed
+- Apply an **anniversary bonus** to HCM and replay the webhook; balances update live without disturbing in-flight reservations
+
+Every action shows the resulting HTTP method/status/latency in the activity log so the dashboard doubles as a live API explorer.
 
 The service ships with an **in-process Mock HCM**, mounted at `/mock-hcm/*`, that holds its own balance state. Production would set `HCM_PROVIDER=workday` (or `sap`, or `http`) and disable the mock.
 

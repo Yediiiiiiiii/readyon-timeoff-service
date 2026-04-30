@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { OutboxService } from './outbox.service';
 import { SyncService } from './sync.service';
@@ -41,5 +41,13 @@ export class SyncController {
   @HttpCode(200)
   async flushOutbox() {
     return this.outbox.flushOnce();
+  }
+
+  @Get('admin/outbox')
+  outboxStatus() {
+    return {
+      stats: this.outbox.stats(),
+      recent: this.outbox.recent(25),
+    };
   }
 }

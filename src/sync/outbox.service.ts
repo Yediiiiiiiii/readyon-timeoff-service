@@ -97,6 +97,43 @@ export class OutboxService {
       .all(requestId) as OutboxRow[];
   }
 
+  /** Snapshot of queue state for dashboards / ops. */
+  stats(): {
+    pending: number;
+    done: number;
+    dead: number;
+    nextAttemptAt: string | null;
+  } {
+    const counts = this.db.db
+      .prepare(
+        `SELECT
+            SUM(CASE WHEN status='PENDING' THEN 1 ELSE 0 END) AS pending,
+            SUM(CASE WHEN status='DONE'    THEN 1 ELSE 0 END) AS done,
+            SUM(CASE WHEN status='DEAD'    THEN 1 ELSE 0 END) AS dead
+           FROM outbox`,
+      )
+      .get() as { pending: number; done: number; dead: number } | undefined;
+    const next = this.db.db
+      .prepare(
+        `SELECT MIN(next_attempt_at) AS nextAttemptAt FROM outbox WHERE status='PENDING'`,
+      )
+      .get() as { nextAttemptAt: string | null } | undefined;
+    return {
+      pending: counts?.pending ?? 0,
+      done: counts?.done ?? 0,
+      dead: counts?.dead ?? 0,
+      nextAttemptAt: next?.nextAttemptAt ?? null,
+    };
+  }
+
+  /** Recent rows in any status, newest first; used by dashboards. */
+  recent(limit = 25): OutboxRow[] {
+    const max = Math.min(Math.max(limit, 1), 200);
+    return this.db.db
+      .prepare(`SELECT * FROM outbox ORDER BY updated_at DESC, id DESC LIMIT ?`)
+      .all(max) as OutboxRow[];
+  }
+
   /** Cancel an outbox row that is still PENDING (used when cancel arrives before file). */
   cancelPendingTx(db: Database, outboxId: number): boolean {
     const r = db

@@ -1,6 +1,6 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { LeaveType } from '../domain/types';
+import type { LeaveType } from '../domain/types';
 import { EmployeesService } from '../employees/employees.service';
 import { DomainError } from '../common/errors';
 import { BalancesService } from './balances.service';
@@ -12,6 +12,11 @@ export class BalancesController {
     private readonly balances: BalancesService,
     private readonly employees: EmployeesService,
   ) {}
+
+  @Get('employees')
+  listEmployees() {
+    return { items: this.employees.listEmployees() };
+  }
 
   @Get('employees/:employeeId/balances')
   list(@Param('employeeId') employeeId: string) {
@@ -38,5 +43,16 @@ export class BalancesController {
       );
     }
     return view;
+  }
+
+  @Get('employees/:employeeId/ledger')
+  ledger(
+    @Param('employeeId') employeeId: string,
+    @Query('limit') limit?: string,
+  ) {
+    this.employees.requireEmployee(employeeId);
+    const all = this.balances.ledger(employeeId);
+    const max = Math.min(Math.max(Number(limit) || 50, 1), 500);
+    return { items: all.slice(-max).reverse() };
   }
 }

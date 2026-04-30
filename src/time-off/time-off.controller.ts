@@ -57,6 +57,11 @@ export class TimeOffController {
     return { items: this.service.list(employeeId) };
   }
 
+  @Get('time-off-requests')
+  listAll() {
+    return { items: this.service.listAll(100) };
+  }
+
   @Post('time-off-requests/:id/approve')
   @HttpCode(200)
   async approve(@Param('id') id: string, @Body() body: ApproveDto) {

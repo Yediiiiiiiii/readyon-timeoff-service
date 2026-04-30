@@ -70,4 +70,37 @@ describe('OutboxService', () => {
     const f = await h.outbox.flushOnce();
     expect(f.processed).toBe(0);
   });
+
+  it('stats() reports counts and recent() returns rows ordered by updated_at', async () => {
+    const empty = h.outbox.stats();
+    expect(empty.pending).toBe(0);
+    expect(empty.done).toBe(0);
+    expect(empty.dead).toBe(0);
+    expect(empty.nextAttemptAt).toBeNull();
+
+    const { employeeId, locationId } = seedEmployee(h, {
+      vacationMinutes: 4800,
+    });
+    const r = h.timeOff.create({
+      employeeId,
+      locationId,
+      leaveType: 'VACATION',
+      startDate: '2026-06-10',
+      endDate: '2026-06-10',
+      durationMinutes: 480,
+    });
+    await h.timeOff.approve(r.id, 'mgr-1');
+
+    const beforeFlush = h.outbox.stats();
+    expect(beforeFlush.pending).toBe(1);
+    expect(beforeFlush.done).toBe(0);
+    expect(beforeFlush.nextAttemptAt).not.toBeNull();
+    expect(h.outbox.recent(10)[0].status).toBe('PENDING');
+
+    await h.outbox.flushOnce();
+    const after = h.outbox.stats();
+    expect(after.pending).toBe(0);
+    expect(after.done).toBe(1);
+    expect(h.outbox.recent(10)[0].status).toBe('DONE');
+  });
 });

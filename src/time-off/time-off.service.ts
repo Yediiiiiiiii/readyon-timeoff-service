@@ -391,6 +391,16 @@ export class TimeOffService implements OnModuleInit {
     return rows.map((r) => this.toView(r));
   }
 
+  listAll(limit = 50): TimeOffRequestView[] {
+    const max = Math.min(Math.max(limit, 1), 500);
+    const rows = this.db.db
+      .prepare(
+        `SELECT * FROM time_off_requests ORDER BY created_at DESC LIMIT ?`,
+      )
+      .all(max) as TimeOffRequestRow[];
+    return rows.map((r) => this.toView(r));
+  }
+
   get(id: string): TimeOffRequestView | null {
     const row = this.findById(id);
     return row ? this.toView(row) : null;

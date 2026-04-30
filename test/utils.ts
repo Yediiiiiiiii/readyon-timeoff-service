@@ -1,7 +1,10 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
+import { join } from 'path';
 import { AppModule } from '../src/app.module';
 import { BalancesService } from '../src/balances/balances.service';
+import { applyStaticDashboard } from '../src/bootstrap';
 import { Clock } from '../src/common/clock';
 import { DbService } from '../src/db/db.service';
 import { EmployeesService } from '../src/employees/employees.service';
@@ -31,7 +34,7 @@ export async function startE2e(): Promise<E2eHarness> {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication<NestExpressApplication>();
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -39,6 +42,7 @@ export async function startE2e(): Promise<E2eHarness> {
       transform: true,
     }),
   );
+  applyStaticDashboard(app, join(process.cwd(), 'public'));
   await app.init();
   await app.listen(0); // any free port
   const url = await app.getUrl();

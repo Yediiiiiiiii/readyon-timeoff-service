@@ -1,10 +1,13 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { join } from 'path';
 import { AppModule } from './app.module';
+import { applyStaticDashboard } from './bootstrap';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['log', 'warn', 'error'],
   });
   app.useGlobalPipes(
@@ -14,6 +17,8 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  applyStaticDashboard(app, join(process.cwd(), 'public'));
 
   const cfg = new DocumentBuilder()
     .setTitle('ReadyOn Time-Off Microservice')

@@ -5,7 +5,7 @@ import { CommonModule } from './common/common.module';
 import { DbModule } from './db/db.module';
 import { EmployeesModule } from './employees/employees.module';
 import { HcmModule } from './hcm/hcm.module';
-import { HealthController } from './health.controller';
+import { HealthController, RootController } from './health.controller';
 import { SyncModule } from './sync/sync.module';
 import { TimeOffModule } from './time-off/time-off.module';
 
@@ -19,6 +19,6 @@ import { TimeOffModule } from './time-off/time-off.module';
     SyncModule,
     TimeOffModule,
   ],
-  controllers: [HealthController, AdminController],
+  controllers: [HealthController, RootController, AdminController],
 })
 export class AppModule {}
