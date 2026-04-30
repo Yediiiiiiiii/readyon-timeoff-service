@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdminController } from './admin.controller';
 import { BalancesModule } from './balances/balances.module';
 import { CommonModule } from './common/common.module';
 import { DbModule } from './db/db.module';
@@ -12,12 +13,12 @@ import { TimeOffModule } from './time-off/time-off.module';
   imports: [
     DbModule,
     CommonModule,
-    HcmModule,
+    HcmModule.forRoot(),
     EmployeesModule,
     BalancesModule,
     SyncModule,
     TimeOffModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, AdminController],
 })
 export class AppModule {}

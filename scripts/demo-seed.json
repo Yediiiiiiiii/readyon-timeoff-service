@@ -1,0 +1,36 @@
+{
+  "employees": [
+    {
+      "employeeId": "emp-alice",
+      "hcmEmployeeId": "wd-alice",
+      "name": "Alice Anderson",
+      "balances": [
+        {
+          "locationId": "loc-NYC",
+          "hcmLocationId": "wd-loc-NYC",
+          "leaveType": "VACATION",
+          "balanceMinutes": 4800
+        },
+        {
+          "locationId": "loc-NYC",
+          "hcmLocationId": "wd-loc-NYC",
+          "leaveType": "SICK",
+          "balanceMinutes": 2400
+        }
+      ]
+    },
+    {
+      "employeeId": "emp-bob",
+      "hcmEmployeeId": "wd-bob",
+      "name": "Bob Brown",
+      "balances": [
+        {
+          "locationId": "loc-SF",
+          "hcmLocationId": "wd-loc-SF",
+          "leaveType": "VACATION",
+          "balanceMinutes": 3840
+        }
+      ]
+    }
+  ]
+}

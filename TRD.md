@@ -274,6 +274,58 @@ All writes to HCM (file-time-off, cancel-time-off) flow through the outbox:
 - Per-request work is keyed on `request_id` so duplicate flushes are no-ops (HCM client uses an idempotency-key derived from the request id).
 - Errors: 4xx → permanent fail (request → FAILED, reservation released); 5xx/timeout → backoff and retry; > 8 attempts → status DEAD + alert.
 
+### 8.7 HCM Transport & Vendor Strategy
+
+The `HcmClient` abstract class is the single seam between ReadyOn's
+business logic and any HCM vendor. The provider is selected at boot from
+`HCM_PROVIDER`:
+
+| `HCM_PROVIDER` | Implementation | Use |
+|---|---|---|
+| `mock` *(default)* | `MockHcmService` (in-process) | Unit tests, e2e tests, local dev without spinning a separate process |
+| `http` | `HttpHcmClient(baseUrl)` | Speaks the same REST shape as our Mock HCM; used to *prove* the abstraction works over the wire and to point at a real HCM that exposes our shape |
+| `workday` | `WorkdayHcmClient(tenantUrl, bearerToken)` | Stub today; production adapter placeholder |
+| `sap` | `SapHcmClient(oDataBaseUrl, oauthClientId, oauthClientSecret)` | Stub today; production adapter placeholder |
+
+`HttpHcmClient` classifies HCM responses into `HcmTransientError` (5xx,
+408, 429, network errors, timeout) and `HcmPermanentError` (4xx). The
+outbox's retry/dead-letter logic and the approve-time defensive check are
+implemented strictly against those two error types, so swapping vendors
+never changes business code.
+
+The Mock HCM is mounted in the same Nest app at `/mock-hcm/*` whenever
+`ENABLE_MOCK_HCM=1` (default in dev). It exposes the same wire-protocol
+the `HttpHcmClient` consumes, plus admin endpoints that simulate
+anniversary bumps, transient outages, and permanent failures. Reviewers
+can curl it directly to inspect or perturb HCM-side state.
+
+### 8.8 Deployment Topology
+
+```
+                         ┌─────────────────────────────────┐
+   ReadyOn               │  Time-Off Service (Nest)        │
+   clients ─────HTTP────▶│  Controllers ─► Services ─► DB  │
+                         │                       │         │
+                         │                       ▼         │
+                         │            HcmClient (interface)│
+                         │                       │         │
+                         └───────────────────────┼─────────┘
+                                                 │
+                            ┌────────────────────┼────────────────────┐
+                            ▼                    ▼                    ▼
+               in-process MockHcmService   HttpHcmClient ─HTTP→  Mock HCM (same
+               (test default)              Workday/SAP adapter   process or own)
+```
+
+Two supported deployment shapes:
+
+1. **Single-process dev/CI**: ReadyOn + Mock HCM in one Nest app, mounted
+   at `/mock-hcm/*`. `HCM_PROVIDER=mock` short-circuits the HTTP loop.
+2. **Two-process integration**: ReadyOn in one process with
+   `HCM_PROVIDER=http HCM_BASE_URL=https://hcm.dev.example`, Mock HCM
+   running in another (or a real HCM). The Time-Off Service code is
+   unchanged.
+
 ## 9. Public API
 
 ### 9.1 Conventions
@@ -297,6 +349,9 @@ All writes to HCM (file-time-off, cancel-time-off) flow through the outbox:
 | 9 | `POST` | `/admin/sync/full` | Trigger full reconcile | ops |
 | 10| `POST` | `/admin/sync/employee/:employeeId` | Reconcile one employee | ops |
 | 11| `GET`  | `/healthz` | Liveness | none |
+| 12| `POST` | `/admin/seed` | Dev/demo seeding (HCM + ReadyOn in one shot) | ops/dev |
+| 13| `POST` | `/admin/outbox/flush` | Drain the outbox synchronously (tests/admin) | ops |
+| 14| `*` | `/mock-hcm/*` | Mock-HCM HTTP surface (toggle with `ENABLE_MOCK_HCM`) | dev |
 
 (v1 ignores auth implementation; tests stub roles via header. Production would put a JWT/IAM in front.)
 
@@ -394,7 +449,9 @@ Approval re-validates against HCM realtime; if HCM rejects, the request is marke
 - Event bus (Kafka) for cross-service balance updates (e.g., payroll).
 - Approval workflows beyond single-step.
 - Rich leave-type policy (carry-over caps, blackout dates) — currently in HCM.
-- Real Workday / SAP adapters implementing the `HcmClient` interface.
+- Flesh out `WorkdayHcmClient` and `SapHcmClient` (stubs in v1 — see §8.7).
+- HMAC verification on `/webhooks/hcm/balance-updated`.
+- Replace single-writer outbox poller with `SELECT … FOR UPDATE SKIP LOCKED`-style claim once on Postgres.
 
 ---
 
