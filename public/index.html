@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ReadyOn — Time-Off Service</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%8F%B3%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">⏳</span>
+        <div>
+          <div class="brand-title">ReadyOn · Time-Off Service</div>
+          <div class="brand-sub">Local-truth balances, eventually consistent with HCM</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="status-pill" class="pill pill--good">●&nbsp;live</span>
+        <a class="btn btn--ghost" href="/docs" target="_blank">Swagger</a>
+        <a class="btn btn--ghost" href="https://github.com/" target="_blank" id="repo-link" style="display:none">GitHub</a>
+        <button class="btn btn--primary" id="seed-btn">Seed demo data</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- Left column: employees + balances -->
+      <section class="card">
+        <header class="card-header">
+          <h2>Employees &amp; balances</h2>
+          <span class="muted" id="balances-meta"></span>
+        </header>
+        <div id="employees-list" class="employees"></div>
+      </section>
+
+      <!-- Right column: actions stack -->
+      <section class="stack">
+        <div class="card">
+          <header class="card-header">
+            <h2>Submit a time-off request</h2>
+            <span class="muted">POST /time-off-requests</span>
+          </header>
+          <form id="create-form" class="form-grid">
+            <label>
+              <span>Employee</span>
+              <select name="employeeId" required></select>
+            </label>
+            <label>
+              <span>Location</span>
+              <select name="locationId" required></select>
+            </label>
+            <label>
+              <span>Leave type</span>
+              <select name="leaveType" required>
+                <option>VACATION</option>
+                <option>SICK</option>
+                <option>PERSONAL</option>
+                <option>BEREAVEMENT</option>
+              </select>
+            </label>
+            <label>
+              <span>Duration (minutes)</span>
+              <input type="number" name="durationMinutes" value="480" min="60" step="60" />
+              <small class="hint">480 = 1 day · 960 = 2 days</small>
+            </label>
+            <label>
+              <span>Start date</span>
+              <input type="date" name="startDate" required />
+            </label>
+            <label>
+              <span>End date</span>
+              <input type="date" name="endDate" required />
+            </label>
+            <label class="span-2">
+              <span>Reason</span>
+              <input type="text" name="reason" placeholder="Long weekend" />
+            </label>
+            <div class="span-2 form-actions">
+              <button type="submit" class="btn btn--primary">Submit request</button>
+              <span class="muted" id="create-hint">Idempotency-Key auto-generated per submit</span>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <header class="card-header">
+            <h2>HCM control room</h2>
+            <span class="muted">Mock Workday at /mock-hcm</span>
+          </header>
+          <div class="hcm-controls">
+            <button class="btn btn--ghost" id="flush-btn">Flush outbox →</button>
+            <button class="btn btn--ghost" id="full-sync-btn">Full sync ↻</button>
+            <button class="btn btn--warning" id="fail-btn">Inject 5xx outage (3×)</button>
+            <button class="btn btn--ghost" id="recover-btn">Heal HCM</button>
+          </div>
+          <div class="hcm-bonus">
+            <strong>Anniversary bonus</strong>
+            <select id="bonus-employee"></select>
+            <select id="bonus-leave-type">
+              <option>VACATION</option>
+              <option>SICK</option>
+              <option>PERSONAL</option>
+              <option>BEREAVEMENT</option>
+            </select>
+            <input type="number" id="bonus-minutes" value="2400" min="60" step="60" />
+            <button class="btn btn--accent" id="bonus-btn">Bump &amp; webhook</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom row: requests, outbox, ledger -->
+      <section class="card span-full">
+        <header class="card-header">
+          <h2>Recent requests</h2>
+          <span class="muted">click status to drill in</span>
+        </header>
+        <div class="table-wrap">
+          <table id="requests-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Employee</th>
+                <th>Type</th>
+                <th>Dates</th>
+                <th>Min</th>
+                <th>Status</th>
+                <th>HCM ref</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <header class="card-header">
+          <h2>Outbox</h2>
+          <span class="muted">pending → HCM</span>
+        </header>
+        <div id="outbox-stats" class="stats-row">
+          <div class="stat"><span class="stat-num" id="ob-pending">0</span><span class="stat-label">pending</span></div>
+          <div class="stat"><span class="stat-num" id="ob-done">0</span><span class="stat-label">done</span></div>
+          <div class="stat"><span class="stat-num stat-num--danger" id="ob-dead">0</span><span class="stat-label">dead</span></div>
+        </div>
+        <div class="table-wrap">
+          <table id="outbox-table">
+            <thead>
+              <tr><th>#</th><th>type</th><th>req</th><th>attempts</th><th>status</th><th>last_error</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <header class="card-header">
+          <h2>Audit ledger</h2>
+          <select id="ledger-employee" class="muted-select"></select>
+        </header>
+        <ol id="ledger-list" class="ledger"></ol>
+      </section>
+
+      <section class="card span-full">
+        <header class="card-header">
+          <h2>Activity log</h2>
+          <button class="btn btn--ghost" id="clear-log">clear</button>
+        </header>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+
+    <div id="toast-container"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
